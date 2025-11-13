@@ -6,14 +6,14 @@ from enum import Enum
 
 # --- 1. Definiciones Básicas de Cartas ---
 
-class Suit(Enum):
+class Suit(Enum): # Palo
     HEARTS = "Corazones"
     DIAMONDS = "Diamantes"
     CLUBS = "Tréboles"
     SPADES = "Picas"
 
 
-class Rank(Enum):
+class Rank(Enum): # Valor
     TWO = 2
     THREE = 3
     FOUR = 4
@@ -61,11 +61,11 @@ class Deck:
 
 class Player:
     def __init__(self, name: str, stack: int):
-        self.name = name
-        self.stack = stack
+        self.name = name # Nombre del jugador
+        self.stack = stack # Fichas que posee el jugador
         self.hand = []  # Sus 2 cartas privadas
         self.current_bet = 0
-        self.is_active = True
+        self.is_active = True # Participación en la ronda
         self.is_all_in = False
 
     def clear_hand(self):
@@ -77,12 +77,12 @@ class Player:
 
 class GameState:
     def __init__(self, players: list[Player]):
-        self.players = players
-        self.pot = 0
+        self.players = players # Lista de jugadores de la partida
+        self.pot = 0 # Bote
         self.community_cards = []
-        self.deck = Deck()
-        self.turn_to_act_index = 0
-        self.current_raise_to_match = 0
+        self.deck = Deck() # Mazo para robar
+        self.turn_to_act_index = 0 # De quién es el turno
+        self.current_raise_to_match = 0 # Nivel de la apuesta a igualar
 
     def reset_for_new_hand(self):
         self.pot = 0
