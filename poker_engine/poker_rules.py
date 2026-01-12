@@ -1,8 +1,8 @@
-from data_models import Rank,Card
+from poker_engine.data_models import Rank, Card
+
 from enum import Enum
 from collections import Counter
 from typing import List, Tuple, Optional
-
 
 class HandRank(Enum):
     """Define los 9 rangos posibles de manos de póker, de más fuerte a más débil."""
@@ -267,5 +267,4 @@ class HandEvaluator:
         if evaluation: return evaluation
 
         # I. High Card (Carta Alta)
-
         return self._check_high_card(all_cards)

@@ -1,19 +1,18 @@
 # Contenido para: poker_engine/data_models.py
 
 import random
+from poker_engine.poker_rules import HandEvaluator
 from enum import Enum
-
-
+from bayesianos import AIPlayer
 # --- 1. Definiciones Básicas de Cartas ---
-
-class Suit(Enum): # Palo
+class Suit(Enum):  # Palo
     HEARTS = "Corazones"
     DIAMONDS = "Diamantes"
     CLUBS = "Tréboles"
     SPADES = "Picas"
 
 
-class Rank(Enum): # Valor
+class Rank(Enum):  # Valor
     TWO = 2
     THREE = 3
     FOUR = 4
@@ -61,30 +60,235 @@ class Deck:
 
 class Player:
     def __init__(self, name: str, stack: int):
-        self.name = name # Nombre del jugador
-        self.stack = stack # Fichas que posee el jugador
+        self.name = name  # Nombre del jugador
+        self.stack = stack  # Fichas que posee el jugador
         self.hand = []  # Sus 2 cartas privadas
         self.current_bet = 0
-        self.is_active = True # Participación en la ronda
+        self.is_active = True  # Participación en la ronda
         self.is_all_in = False
+        self.has_called = False  # Ha realziado al menos una accion en la ronda (puede ser call/pass)
+        self.evaluation = None  # Evaluación de sus cartas
+        self.is_evaluated = False  # Ha sido valorado, comparado y revisado si le corresponde sidepot
 
     def clear_hand(self):
         self.hand = []
         self.current_bet = 0
+        self.evaluation = None
+        if self.stack > 0:
+            self.is_active = True
+        else:
+            self.is_active = False
+
+    def change_round(self):
+        self.has_called = False
+
+    def action(self, current_raise_to_match):
+        pass
+
+
+class AIPlayer(Player):
+    def __init__(self, name: str, stack: int, game_reference):
+        super().__init__(name, stack)
+        self.game = game_reference  # Referencia al GameState para ver la mesa
+        self.evaluator = HandEvaluator()
+
+    def estimate_equity(self, iterations=500):
+        """
+        Método Bayesiano: Simulación de Monte Carlo.
+        Calcula la probabilidad de ganar basándose en las cartas visibles.
+        """
+        wins = 0
+        community = self.game.community_cards
+        # Jugadores que siguen en la mano (menos yo)
+        opponents_count = self.game.number_of_active() - 1
+
+        if opponents_count <= 0: return 1.0
+
+        # Mazo excluyendo cartas conocidas
+        known_cards = self.hand + community
+        full_deck = [Card(r, s) for s in Suit for r in Rank]
+        remaining_deck = [c for c in full_deck if not any(
+            c.rank == k.rank and c.suit == k.suit for k in known_cards)]
+
+        for _ in range(iterations):
+            temp_deck = remaining_deck[:]
+            random.shuffle(temp_deck)
+
+            # Repartir manos ficticias a oponentes
+            opp_hands = [[temp_deck.pop(), temp_deck.pop()] for _ in range(opponents_count)]
+
+            # Completar mesa hasta 5 cartas
+            sim_community = community[:]
+            while len(sim_community) < 5:
+                sim_community.append(temp_deck.pop())
+
+            # Evaluar mi mano contra las de los oponentes
+            my_score = self.evaluator.evaluate_hand(self.hand, sim_community)
+            if all(my_score > self.evaluator.evaluate_hand(oh, sim_community) for oh in opp_hands):
+                wins += 1
+
+        return wins / iterations
+
+    def action(self, current_raise_to_match):
+        """
+        Decisión basada en el cálculo de probabilidad.
+        """
+        if not self.is_active or self.is_all_in:
+            self.has_called = True
+            return current_raise_to_match, 0
+
+        # 1. Ejecutar el cálculo bayesiano
+        win_prob = self.estimate_equity()
+
+        # 2. Lógica de decisión basada en la probabilidad (Equity)
+        amount_to_call = current_raise_to_match - self.current_bet
+
+        # Lógica temporal (aquí es donde luego pondremos la Lógica Borrosa)
+        if win_prob > 0.7:  # Mano fuerte: Sube
+            extra = int(self.stack * 0.2)
+            new_total = current_raise_to_match + extra
+            actual_raise = new_total - self.current_bet
+        elif win_prob > 0.3 or amount_to_call == 0:  # Mano aceptable: Iguala
+            new_total = current_raise_to_match
+            actual_raise = amount_to_call
+        else:  # Mano mala: Se retira
+            self.is_active = False
+            self.has_called = True
+            return current_raise_to_match, 0
+
+        # Gestión de stack y All-in
+        if actual_raise >= self.stack:
+            actual_raise = self.stack
+            new_total = self.current_bet + self.stack
+            self.is_all_in = True
+
+        self.stack -= actual_raise
+        self.current_bet = new_total
+        self.has_called = True
+
+        return new_total, actual_raise
+class HumanPlayer(Player):
+    def action(self, current_raise_to_match):
+        amount_raised = 0
+        if not self.is_all_in:
+            opcion = input(
+                "Please, choose an option from the provided list, using its assigned number. Choose Action: ")
+            opcion = int(opcion)
+
+            while opcion < 1 or opcion > 4:
+                opcion = input(
+                    "Please, choose an option from the provided list, using its assigned number. Choose Action: ")
+                opcion = int(opcion)
+
+            if opcion == 1:
+                if self.current_bet < current_raise_to_match:
+                    if self.stack > current_raise_to_match:
+                        amount_raised = current_raise_to_match - self.current_bet
+                        self.current_bet = current_raise_to_match
+                    else:
+                        self.current_bet = self.stack
+                        self.is_all_in = True
+            elif opcion == 2:
+                amount_raised = int(input("Choose Amount to Raise: "))
+                if amount_raised >= self.stack:
+                    amount_raised = input("Invalid Raise. Choose Amount to Raise: ")
+
+                current_raise_to_match += amount_raised
+                amount_raised = current_raise_to_match
+                self.current_bet = current_raise_to_match
+
+            elif opcion == 3:
+                self.is_active = False
+                self.stack -= self.current_bet
+                self.current_bet = 0
+                amount_raised = 0
+
+            elif opcion == 4:
+                self.current_bet = self.stack
+                self.is_all_in = True
+
+                if self.current_bet > current_raise_to_match:
+                    amount_raised = self.current_bet - current_raise_to_match
+                    current_raise_to_match = self.current_bet
+
+        self.has_called = True
+        self.stack -= amount_raised
+        return current_raise_to_match, amount_raised
 
 
 # --- 4. El Estado del Juego ---
 
+# Ronda actual en la que se encuentra
+class Round(Enum):
+    PreFlop = 0
+    Flop = 1
+    Turn = 2
+    River = 3
+    ShowHand = 4
+    EndGame = 5
+
+
 class GameState:
-    def __init__(self, players: list[Player]):
-        self.players = players # Lista de jugadores de la partida
-        self.pot = 0 # Bote
+    def __init__(self, players: list[Player], baseblind: int):
+        self.players = players  # Lista de jugadores de la partida
+        self.pot = 0  # Bote
         self.community_cards = []
-        self.deck = Deck() # Mazo para robar
-        self.turn_to_act_index = 0 # De quién es el turno
-        self.current_raise_to_match = 0 # Nivel de la apuesta a igualar
+        self.burned_cards = []
+        self.deck = Deck()  # Mazo para robar
+        self.turn_to_act_index = 0  # De quién es el turno
+        self.small_blind_indx = 0  # Jugador que da la ciega pequeña de la mano (se le considera que empieza jugando aunque sea accion forzada)
+        self.current_raise_to_match = 0  # Nivel de la apuesta a igualar
+        self.last_raiser = 0  # Ultimo jugador en subir la apuesta
+        self.round = Round.PreFlop
+
+        # Definir las ciegas minimas como parte de la partida permitira subirlas entre manos
+        # (garantizando que eventualmente haya un ganador en torneos eliminatorios)
+        self.smallBlind = baseblind  # Ciega pequeña minima
+        self.bigBlind = baseblind * 2  # Ciega grande minima
+
+        # Jugadores ganadores y cantidad (Para su uso en visualizacion)
+        self.winner_players = []
+        self.amount_won = []
+
+    def number_of_active(self):
+        count = 0
+        for player in self.players:
+            if player.is_active == True:
+                count += 1
+        return count
+
+    def minimum_bet_player(self):
+        player_index = None
+        player_bet = None
+
+        for index, player in enumerate(self.players):
+            if player.is_active == True:
+                if player_bet == None or player.current_bet < player_bet:
+                    player_bet = player.current_bet
+                    player_index = index
+        return player_index, player_bet
+
+    def any_active(self):
+        for player in self.players:
+            if player.is_active:
+                return True
+        return False
+
+    def yet_to_evaluate(self):
+        for player in self.players:
+            if not player.is_evaluated:
+                return True
+        return False
 
     def reset_for_new_hand(self):
         self.pot = 0
         self.community_cards = []
         self.deck = Deck()
+        self.small_blind_indx = (self.small_blind_indx + 1) % len(self.players)
+        self.turn_to_act_index = self.small_blind_indx
+
+        for player in self.players:
+            player.clear_hand()
+
+        self.winner_players = []
+        self.amount_won = []
