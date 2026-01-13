@@ -1,9 +1,6 @@
 # Contenido para: poker_engine/data_models.py
-
 import random
-from poker_engine.poker_rules import HandEvaluator
 from enum import Enum
-from bayesianos import AIPlayer
 # --- 1. Definiciones Básicas de Cartas ---
 class Suit(Enum):  # Palo
     HEARTS = "Corazones"
@@ -89,84 +86,64 @@ class Player:
 class AIPlayer(Player):
     def __init__(self, name: str, stack: int, game_reference):
         super().__init__(name, stack)
-        self.game = game_reference  # Referencia al GameState para ver la mesa
-        self.evaluator = HandEvaluator()
-
-    def estimate_equity(self, iterations=500):
-        """
-        Método Bayesiano: Simulación de Monte Carlo.
-        Calcula la probabilidad de ganar basándose en las cartas visibles.
-        """
-        wins = 0
-        community = self.game.community_cards
-        # Jugadores que siguen en la mano (menos yo)
-        opponents_count = self.game.number_of_active() - 1
-
-        if opponents_count <= 0: return 1.0
-
-        # Mazo excluyendo cartas conocidas
-        known_cards = self.hand + community
-        full_deck = [Card(r, s) for s in Suit for r in Rank]
-        remaining_deck = [c for c in full_deck if not any(
-            c.rank == k.rank and c.suit == k.suit for k in known_cards)]
-
-        for _ in range(iterations):
-            temp_deck = remaining_deck[:]
-            random.shuffle(temp_deck)
-
-            # Repartir manos ficticias a oponentes
-            opp_hands = [[temp_deck.pop(), temp_deck.pop()] for _ in range(opponents_count)]
-
-            # Completar mesa hasta 5 cartas
-            sim_community = community[:]
-            while len(sim_community) < 5:
-                sim_community.append(temp_deck.pop())
-
-            # Evaluar mi mano contra las de los oponentes
-            my_score = self.evaluator.evaluate_hand(self.hand, sim_community)
-            if all(my_score > self.evaluator.evaluate_hand(oh, sim_community) for oh in opp_hands):
-                wins += 1
-
-        return wins / iterations
+        self.game = game_reference
 
     def action(self, current_raise_to_match):
-        """
-        Decisión basada en el cálculo de probabilidad.
-        """
+        from poker_engine.bayesianos import estimate_equity
+        from poker_engine.Logica_fuzzy import get_fuzzy_decision  # Importación de la lógica de tu compañero
+
         if not self.is_active or self.is_all_in:
             self.has_called = True
             return current_raise_to_match, 0
 
-        # 1. Ejecutar el cálculo bayesiano
-        win_prob = self.estimate_equity()
+        # --- PARTE A: Preparación de Inputs (Tú) ---
 
-        # 2. Lógica de decisión basada en la probabilidad (Equity)
+        # 1. Probabilidad de victoria (Bayesiana)
+        win_prob = estimate_equity(self.hand, self.game)
+
+        # 2. Pot Odds: ¿Cuánto me cuesta el bote actual?
         amount_to_call = current_raise_to_match - self.current_bet
+        total_pot = self.game.pot + amount_to_call
+        # Si el bote es 0 (raro), las odds son 0
+        pot_odds = amount_to_call / total_pot if total_pot > 0 else 0
 
-        # Lógica temporal (aquí es donde luego pondremos la Lógica Borrosa)
-        if win_prob > 0.7:  # Mano fuerte: Sube
-            extra = int(self.stack * 0.2)
-            new_total = current_raise_to_match + extra
-            actual_raise = new_total - self.current_bet
-        elif win_prob > 0.3 or amount_to_call == 0:  # Mano aceptable: Iguala
-            new_total = current_raise_to_match
-            actual_raise = amount_to_call
-        else:  # Mano mala: Se retira
+        # 3. Stack Relativo: ¿Tengo muchas o pocas fichas? (Normalizado 0-1)
+        # Tomamos como referencia 20 ciegas grandes para decir que un stack es "grande" (1.0)
+        rel_stack = min(self.stack / (self.game.bigBlind * 20), 1.0)
+
+        # --- PARTE B: Inferencia Borrosa (Tu compañero) ---
+
+        # La función devuelve:
+        # fuzzy_action: 1 (Call/Pass), 2 (Raise), 3 (Fold)
+        # bet_multiplier: % del stack a apostar si es Raise (0.0 a 1.0)
+        fuzzy_action, bet_multiplier = get_fuzzy_decision(win_prob, pot_odds, rel_stack)
+
+        # --- PARTE C: Ejecución en el motor ---
+
+        if fuzzy_action == 3:  # Fold
             self.is_active = False
             self.has_called = True
             return current_raise_to_match, 0
 
-        # Gestión de stack y All-in
-        if actual_raise >= self.stack:
-            actual_raise = self.stack
+        if fuzzy_action == 2:  # Raise
+            # Calculamos la subida basada en el multiplicador borroso
+            extra_raise = int(self.stack * bet_multiplier)
+            new_total = current_raise_to_match + extra_raise
+        else:  # Call / Pass (fuzzy_action == 1)
+            new_total = current_raise_to_match
+
+        # Gestión de límites y All-in
+        actual_pay = new_total - self.current_bet
+        if actual_pay >= self.stack:
+            actual_pay = self.stack
             new_total = self.current_bet + self.stack
             self.is_all_in = True
 
-        self.stack -= actual_raise
+        self.stack -= actual_pay
         self.current_bet = new_total
         self.has_called = True
 
-        return new_total, actual_raise
+        return new_total, actual_pay
 class HumanPlayer(Player):
     def action(self, current_raise_to_match):
         amount_raised = 0

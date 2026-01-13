@@ -99,13 +99,14 @@ class Table:
                 print(f" Main Pot: {self.game.pot}")
                 print(f" Community Cards: {self.game.community_cards}")
                 print(" ========================")
-
+                actual_player = self.game.players[self.game.turn_to_act_index]
                 # Características del propio jugador:
                 print(f" ===== Player {self.game.turn_to_act_index + 1} ===== ")
                 print(" ========================")
                 print(f" Stack: {self.game.players[self.game.turn_to_act_index].stack}")
                 print(f" Bet: {self.game.players[self.game.turn_to_act_index].current_bet}")
-                print(f" Cards: {self.game.players[self.game.turn_to_act_index].hand}")
+                if isinstance(actual_player, dm.HumanPlayer):
+                    print(f" Cards: {actual_player.hand}")
                 print(" ========================")
 
                 # Acciones a realizar
