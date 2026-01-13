@@ -120,77 +120,75 @@ class AIPlayer(Player):
 
         # --- PARTE C: Ejecución en el motor ---
 
+        # --- PARTE C: Ejecución corregida ---
         if fuzzy_action == 3:  # Fold
             self.is_active = False
             self.has_called = True
             return current_raise_to_match, 0
 
         if fuzzy_action == 2:  # Raise
-            # Calculamos la subida basada en el multiplicador borroso
             extra_raise = int(self.stack * bet_multiplier)
             new_total = current_raise_to_match + extra_raise
-        else:  # Call / Pass (fuzzy_action == 1)
+        else:  # Call / Pass
             new_total = current_raise_to_match
 
-        # Gestión de límites y All-in
         actual_pay = new_total - self.current_bet
+
+        # Validación de fondos
         if actual_pay >= self.stack:
             actual_pay = self.stack
             new_total = self.current_bet + self.stack
             self.is_all_in = True
 
-        self.stack -= actual_pay
+        self.stack -= actual_pay  # RESTA real del stack
         self.current_bet = new_total
         self.has_called = True
 
         return new_total, actual_pay
+
+
 class HumanPlayer(Player):
     def action(self, current_raise_to_match):
-        amount_raised = 0
+        amount_to_pay = 0  # Lo que realmente sacamos del bolsillo en esta acción
+
         if not self.is_all_in:
-            opcion = input(
-                "Please, choose an option from the provided list, using its assigned number. Choose Action: ")
-            opcion = int(opcion)
+            # Mostramos al usuario cuánto debe poner para igualar
+            needed_to_call = current_raise_to_match - self.current_bet
+            print(f"To call: {needed_to_call}")
 
-            while opcion < 1 or opcion > 4:
-                opcion = input(
-                    "Please, choose an option from the provided list, using its assigned number. Choose Action: ")
-                opcion = int(opcion)
+            opcion = int(input("1-Call/Pass, 2-Raise, 3-Fold, 4-All-in: "))
 
-            if opcion == 1:
-                if self.current_bet < current_raise_to_match:
-                    if self.stack > current_raise_to_match:
-                        amount_raised = current_raise_to_match - self.current_bet
-                        self.current_bet = current_raise_to_match
-                    else:
-                        self.current_bet = self.stack
-                        self.is_all_in = True
-            elif opcion == 2:
-                amount_raised = int(input("Choose Amount to Raise: "))
-                if amount_raised >= self.stack:
-                    amount_raised = input("Invalid Raise. Choose Amount to Raise: ")
+            if opcion == 1:  # Call / Check
+                amount_to_pay = min(needed_to_call, self.stack)
+                self.current_bet += amount_to_pay
+                if self.stack <= amount_to_pay: self.is_all_in = True
 
-                current_raise_to_match += amount_raised
-                amount_raised = current_raise_to_match
-                self.current_bet = current_raise_to_match
+            elif opcion == 2:  # Raise
+                raise_amount = int(input("How much MORE than the current bet do you want to raise?: "))
+                total_new_bet = current_raise_to_match + raise_amount
+                amount_to_pay = total_new_bet - self.current_bet
 
-            elif opcion == 3:
+                if amount_to_pay >= self.stack:  # Si no le alcanza, es un All-in
+                    amount_to_pay = self.stack
+                    self.is_all_in = True
+
+                self.current_bet += amount_to_pay
+                current_raise_to_match = self.current_bet
+
+            elif opcion == 3:  # Fold
                 self.is_active = False
-                self.stack -= self.current_bet
-                self.current_bet = 0
-                amount_raised = 0
+                return current_raise_to_match, 0
 
-            elif opcion == 4:
-                self.current_bet = self.stack
+            elif opcion == 4:  # All-in
+                amount_to_pay = self.stack
+                self.current_bet += amount_to_pay
                 self.is_all_in = True
-
                 if self.current_bet > current_raise_to_match:
-                    amount_raised = self.current_bet - current_raise_to_match
                     current_raise_to_match = self.current_bet
 
+        self.stack -= amount_to_pay
         self.has_called = True
-        self.stack -= amount_raised
-        return current_raise_to_match, amount_raised
+        return current_raise_to_match, amount_to_pay
 
 
 # --- 4. El Estado del Juego ---
@@ -210,6 +208,7 @@ class GameState:
         self.players = players  # Lista de jugadores de la partida
         self.pot = 0  # Bote
         self.community_cards = []
+
         self.burned_cards = []
         self.deck = Deck()  # Mazo para robar
         self.turn_to_act_index = 0  # De quién es el turno

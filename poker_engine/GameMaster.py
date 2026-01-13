@@ -196,6 +196,7 @@ class Crupier:
                                     best_index = i
                         # Identificar si hay algun side_pot y su tamaño
                         minimum_bet_player_index, minimum_bet = self.game.minimum_bet_player()
+
                         side_pot = minimum_bet * self.game.number_of_active()
                         # Añadir el dinero del sidepot al mejor jugador y eliminarlo del principal
                         self.game.players[best_index].stack += side_pot

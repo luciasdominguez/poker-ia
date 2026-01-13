@@ -15,91 +15,118 @@ class Table:
         match self.game.round:
             case dm.Round.PreFlop:
                 self.limpiar_consola()
-                # Caracteristicas globales de la partida:
-                print(" ===== Table Estate ===== ")
-                print(" Round: Pre-Flop ")
-                print(f" Main Pot: {self.game.pot}")
-                print(f" Community Cards: {self.game.community_cards}")
-                print(" ========================")
+                actual_player = self.game.players[self.game.turn_to_act_index]
+                if isinstance(actual_player, dm.HumanPlayer):
+
+                    # Caracteristicas globales de la partida:
+                    print(" ===== Table Estate ===== ")
+                    print(" Round: Pre-Flop ")
+                    print(f" Main Pot: {self.game.pot}")
+                    print(f" Community Cards: {self.game.community_cards}")
+                    print(" ========================")
 
                 # Características del propio jugador:
                 print(f" ===== Player {self.game.turn_to_act_index + 1} ===== ")
                 print(" ========================")
                 print(f" Stack: {self.game.players[self.game.turn_to_act_index].stack}")
                 print(f" Bet: {self.game.players[self.game.turn_to_act_index].current_bet}")
-                print(f" Cards: {self.game.players[self.game.turn_to_act_index].hand}")
-                print(" ========================")
+                to_call = self.game.current_raise_to_match - actual_player.current_bet
+                if isinstance(actual_player, dm.HumanPlayer):
+                    print(f" Cards: {actual_player.hand}")
+                    print(" ========================")
+                    if to_call > 0:
+                        print(f" -> You have to call: {to_call}")
+                    else:
+                        print(" -> You can pass")
 
-                # Acciones a realizar
-                print(f" ===== Possible Actions ===== ")
-                print(" ========================")
-                print("1- Call/Pass")
-                print("2 - Raise")
-                print("3 - Fold")
-                print("4 - All in")
-                print(" ========================")
-
+                    print(" ========================")
+                    # Acciones a realizar
+                    print(f" ===== Possible Actions ===== ")
+                    print(" ========================")
+                    print("1- Call/Pass")
+                    print("2 - Raise")
+                    print("3 - Fold")
+                    print("4 - All in")
+                    print(" ========================")
             case dm.Round.Flop:
                 self.limpiar_consola()
-                # Caracteristicas globales de la partida:
-                print(" ===== Table Estate ===== ")
-                print(" Round: Flop ")
-                print(f" Main Pot: {self.game.pot}")
-                print(f" Community Cards: {self.game.community_cards}")
-                print(" ========================")
+                actual_player = self.game.players[self.game.turn_to_act_index]
+                if isinstance(actual_player, dm.HumanPlayer):
+                    # Caracteristicas globales de la partida:
+                    print(" ===== Table Estate ===== ")
+                    print(" Round: Pre-Flop ")
+                    print(f" Main Pot: {self.game.pot}")
+                    print(f" Community Cards: {self.game.community_cards}")
+                    print(" ========================")
 
                 # Características del propio jugador:
                 print(f" ===== Player {self.game.turn_to_act_index + 1} ===== ")
                 print(" ========================")
                 print(f" Stack: {self.game.players[self.game.turn_to_act_index].stack}")
                 print(f" Bet: {self.game.players[self.game.turn_to_act_index].current_bet}")
-                print(f" Cards: {self.game.players[self.game.turn_to_act_index].hand}")
-                print(" ========================")
+                actual_player = self.game.players[self.game.turn_to_act_index]
 
-                # Acciones a realizar
-                print(f" ===== Possible Actions ===== ")
-                print(" ========================")
-                print("1- Call/Pass")
-                print("2 - Raise")
-                print("3 - Fold")
-                print("4 - All in")
-                print(" ========================")
+                if isinstance(actual_player, dm.HumanPlayer):
+                    print(f" Cards: {actual_player.hand}")
+                    print(" ========================")
+                    to_call = self.game.current_raise_to_match - actual_player.current_bet
+
+                    if to_call > 0:
+                        print(f" -> You have to call: {to_call}")
+                    else:
+                        print(" -> You can pass")
+                    # Acciones a realizar
+                    print(f" ===== Possible Actions ===== ")
+                    print(" ========================")
+                    print("1- Call/Pass")
+                    print("2 - Raise")
+                    print("3 - Fold")
+                    print("4 - All in")
+                    print(" ========================")
 
             case dm.Round.Turn:
                 self.limpiar_consola()
-                # Caracteristicas globales de la partida:
-                print(" ===== Table Estate ===== ")
-                print(" Round: Turn")
-                print(f" Main Pot: {self.game.pot}")
-                print(f" Community Cards: {self.game.community_cards}")
-                print(" ========================")
-
+                actual_player = self.game.players[self.game.turn_to_act_index]
+                if isinstance(actual_player, dm.HumanPlayer):
+                    # Caracteristicas globales de la partida:
+                    print(" ===== Table Estate ===== ")
+                    print(" Round: Pre-Flop ")
+                    print(f" Main Pot: {self.game.pot}")
+                    print(f" Community Cards: {self.game.community_cards}")
+                    print(" ========================")
                 # Características del propio jugador:
                 print(f" ===== Player {self.game.turn_to_act_index + 1} ===== ")
                 print(" ========================")
                 print(f" Stack: {self.game.players[self.game.turn_to_act_index].stack}")
                 print(f" Bet: {self.game.players[self.game.turn_to_act_index].current_bet}")
-                print(f" Cards: {self.game.players[self.game.turn_to_act_index].hand}")
-                print(" ========================")
 
-                # Acciones a realizar
-                print(f" ===== Possible Actions ===== ")
-                print(" ========================")
-                print("1- Call/Pass")
-                print("2 - Raise")
-                print("3 - Fold")
-                print("4 - All in")
-                print(" ========================")
+                if isinstance(actual_player, dm.HumanPlayer):
+                    print(f" Cards: {actual_player.hand}")
+                    print(" ========================")
+                    to_call = self.game.current_raise_to_match - actual_player.current_bet
+
+                    if to_call > 0:
+                        print(f" -> You have to call: {to_call}")
+                    else:
+                        print(" -> You can pass")
+                    # Acciones a realizar
+                    print(f" ===== Possible Actions ===== ")
+                    print(" ========================")
+                    print("1- Call/Pass")
+                    print("2 - Raise")
+                    print("3 - Fold")
+                    print("4 - All in")
+                    print(" ========================")
 
             case dm.Round.River:
-                self.limpiar_consola()
-                # Caracteristicas globales de la partida:
-                print(" ===== Table Estate ===== ")
-                print(" Round: River")
-                print(f" Main Pot: {self.game.pot}")
-                print(f" Community Cards: {self.game.community_cards}")
-                print(" ========================")
                 actual_player = self.game.players[self.game.turn_to_act_index]
+                if isinstance(actual_player, dm.HumanPlayer):
+                    # Caracteristicas globales de la partida:
+                    print(" ===== Table Estate ===== ")
+                    print(" Round: Pre-Flop ")
+                    print(f" Main Pot: {self.game.pot}")
+                    print(f" Community Cards: {self.game.community_cards}")
+                    print(" ========================")
                 # Características del propio jugador:
                 print(f" ===== Player {self.game.turn_to_act_index + 1} ===== ")
                 print(" ========================")
@@ -107,16 +134,21 @@ class Table:
                 print(f" Bet: {self.game.players[self.game.turn_to_act_index].current_bet}")
                 if isinstance(actual_player, dm.HumanPlayer):
                     print(f" Cards: {actual_player.hand}")
-                print(" ========================")
+                    print(" ========================")
+                    to_call = self.game.current_raise_to_match - actual_player.current_bet
 
-                # Acciones a realizar
-                print(f" ===== Possible Actions ===== ")
-                print(" ========================")
-                print("1- Call/Pass")
-                print("2 - Raise")
-                print("3 - Fold")
-                print("4 - All in")
-                print(" ========================")
+                    if to_call > 0:
+                        print(f" -> You have to call: {to_call}")
+                    else:
+                        print(" -> You can pass")
+                    # Acciones a realizar
+                    print(f" ===== Possible Actions ===== ")
+                    print(" ========================")
+                    print("1- Call/Pass")
+                    print("2 - Raise")
+                    print("3 - Fold")
+                    print("4 - All in")
+                    print(" ========================")
 
             case dm.Round.ShowHand:
                 self.limpiar_consola()
