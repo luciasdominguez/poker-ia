@@ -61,6 +61,7 @@ class Player:
         self.stack = stack  # Fichas que posee el jugador
         self.hand = []  # Sus 2 cartas privadas
         self.current_bet = 0
+        self.total_bet_in_hand = 0 # Fichas apostadas en total en esta mano (acumulado)
         self.is_active = True  # Participación en la ronda
         self.is_all_in = False
         self.has_called = False  # Ha realziado al menos una accion en la ronda (puede ser call/pass)
@@ -70,6 +71,7 @@ class Player:
     def clear_hand(self):
         self.hand = []
         self.current_bet = 0
+        self.total_bet_in_hand = 0
         self.evaluation = None
         if self.stack > 0:
             self.is_active = True
@@ -84,9 +86,10 @@ class Player:
 
 
 class AIPlayer(Player):
-    def __init__(self, name: str, stack: int, game_reference):
+    def __init__(self, name: str, stack: int, game_reference, difficulty='hard'):
         super().__init__(name, stack)
         self.game = game_reference
+        self.difficulty = difficulty
 
     def action(self, current_raise_to_match):
         from poker_engine.bayesianos import estimate_equity
@@ -116,7 +119,7 @@ class AIPlayer(Player):
         # La función devuelve:
         # fuzzy_action: 1 (Call/Pass), 2 (Raise), 3 (Fold)
         # bet_multiplier: % del stack a apostar si es Raise (0.0 a 1.0)
-        fuzzy_action, bet_multiplier = get_fuzzy_decision(win_prob, pot_odds, rel_stack)
+        fuzzy_action, bet_multiplier = get_fuzzy_decision(win_prob, pot_odds, rel_stack, self.difficulty)
 
         # --- PARTE C: Ejecución en el motor ---
 
@@ -154,9 +157,9 @@ class HumanPlayer(Player):
         if not self.is_all_in:
             # Mostramos al usuario cuánto debe poner para igualar
             needed_to_call = current_raise_to_match - self.current_bet
-            print(f"To call: {needed_to_call}")
+            print(f"Para igualar: {needed_to_call}")
 
-            opcion = int(input("1-Call/Pass, 2-Raise, 3-Fold, 4-All-in: "))
+            opcion = int(input("1-Igualar/Pasar, 2-Subir, 3-Retirarse, 4-All-in: "))
 
             if opcion == 1:  # Call / Check
                 amount_to_pay = min(needed_to_call, self.stack)
@@ -164,7 +167,7 @@ class HumanPlayer(Player):
                 if self.stack <= amount_to_pay: self.is_all_in = True
 
             elif opcion == 2:  # Raise
-                raise_amount = int(input("How much MORE than the current bet do you want to raise?: "))
+                raise_amount = int(input("¿Cuánto MÁS de la apuesta actual quieres subir?: "))
                 total_new_bet = current_raise_to_match + raise_amount
                 amount_to_pay = total_new_bet - self.current_bet
 
@@ -203,10 +206,20 @@ class Round(Enum):
     EndGame = 5
 
 
+
+class SidePot:
+    def __init__(self, amount: int, eligible_players: list[str]):
+        self.amount = amount
+        self.eligible_players = eligible_players
+
+    def __repr__(self):
+        return f"SidePot({self.amount}, {self.eligible_players})"
+
 class GameState:
     def __init__(self, players: list[Player], baseblind: int):
         self.players = players  # Lista de jugadores de la partida
-        self.pot = 0  # Bote
+        self.pot = 0  # Bote acumulado para display. Bote real se calcula en side_pots
+        self.side_pots = [] # Lista de SidePot
         self.community_cards = []
 
         self.burned_cards = []
@@ -258,6 +271,7 @@ class GameState:
 
     def reset_for_new_hand(self):
         self.pot = 0
+        self.side_pots = []
         self.community_cards = []
         self.deck = Deck()
         self.small_blind_indx = (self.small_blind_indx + 1) % len(self.players)

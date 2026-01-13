@@ -10,6 +10,47 @@ class Crupier:
         self.dealed = False
         self.evaluator = pk.HandEvaluator()
 
+    def check_early_win(self):
+        # Si solo queda un jugador activo, gana todo el bote inmediatamente
+        if self.game.number_of_active() == 1:
+            # Encontrar al ganador
+            winner = None
+            for p in self.game.players:
+                if p.is_active:
+                    winner = p
+                    break
+            
+            if winner:
+                # Todo el bote para el (incluyendo side pots si hubiera, pero si todos foldean, side pots se pueden simplificar)
+                # Ojo: resolve_side_pots podria haber separado dinero.
+                # Si es Win By Fold, el ganador se lleva TODO el dinero "vivo" de la mesa.
+                # El dinero de los side pots son de gente que ya esta All-in?
+                # Si estan All-in, NO han hecho fold. Active includes All-in players?
+                # number_of_active normalmente incluye all-in si is_active=True.
+                # Si alguien hizo Fold, is_active=False.
+                # Si quedan players All-in (is_active=True), entonces NO es early win, hay showdown.
+                
+                # number_of_active logic in data_models:
+                # if player.is_active == True: count += 1.
+                # Folded players set is_active=False.
+                # So if count=1, only 1 person has cards. Others folded.
+                # Winner takes game.pot + sums of side_pots?
+                
+                # Por simplicidad, consolidar todo en game.pot antes de darlo, o iterar.
+                total_pot = self.game.pot
+                for sp in self.game.side_pots: # Si hubiera
+                     total_pot += sp.amount
+                
+                winner.stack += total_pot
+                self.game.winner_players.append(winner.name)
+                self.game.amount_won.append(total_pot)
+                
+                self.game.pot = 0
+                self.game.side_pots = []
+                self.game.round = dm.Round.EndGame # End Hand
+                return True
+        return False
+
     def deal_players(self):
         for i in range(2):
             for player in self.game.players:
@@ -24,14 +65,22 @@ class Crupier:
 
     def blinds(self):
         # Hacer la apuesta
-        self.game.players[self.game.turn_to_act_index].current_bet = self.game.smallBlind
-        self.game.players[((self.game.turn_to_act_index + 1) % len(self.game.players))].current_bet = self.game.bigBlind
+        sb_player = self.game.players[self.game.turn_to_act_index]
+        bb_player = self.game.players[((self.game.turn_to_act_index + 1) % len(self.game.players))]
+        
+        sb_player.current_bet = self.game.smallBlind
+        sb_player.total_bet_in_hand += self.game.smallBlind # Track total
+        
+        bb_player.current_bet = self.game.bigBlind
+        bb_player.total_bet_in_hand += self.game.bigBlind # Track total
+        
         # Retirar el dinero de los jugadores
-        self.game.players[self.game.turn_to_act_index].stack -= self.game.smallBlind
-        self.game.players[((self.game.turn_to_act_index + 1) % len(self.game.players))].stack -= self.game.bigBlind
+        sb_player.stack -= self.game.smallBlind
+        bb_player.stack -= self.game.bigBlind
+        
         # Incluir la apuesta en el bote
         self.game.current_raise_to_match = self.game.bigBlind
-
+        
         self.game.pot = self.game.smallBlind + self.game.bigBlind
         # Darle el turno al primer jugador (despues de las ciegas)
         self.game.last_raiser = ((self.game.turn_to_act_index + 1) % len(self.game.players))
@@ -43,6 +92,124 @@ class Crupier:
                 if player.has_called == False:
                     return False
         return True
+
+    def resolve_side_pots(self):
+        # 1. Recolectar todas las apuestas totales de los jugadores activos o all-in
+        
+        active_bets = []
+        for p in self.game.players:
+            if p.total_bet_in_hand > 0:
+                 active_bets.append(p.total_bet_in_hand)
+        
+        unique_bets = sorted(list(set(active_bets)))
+        
+        # Resetear side_pots actuales
+        self.game.side_pots = []
+        
+        current_level_bet = 0
+        
+        for bet_level in unique_bets:
+            pot_amount = 0
+            eligible_players = []
+            
+            # Cuanto se contribuye a este nivel (diferencia con el anterior)
+            contribution = bet_level - current_level_bet
+            if contribution <= 0: continue
+            
+            contributing_players_count = 0
+
+            for p in self.game.players:
+                # Si el jugador aposto al menos hasta este nivel, contribuye
+                if p.total_bet_in_hand >= bet_level:
+                    pot_amount += contribution
+                    contributing_players_count +=1
+                    if p.is_active and not p.hand == []: # Solo si sigue jugando (no fold)
+                         eligible_players.append(p.name)
+                elif p.total_bet_in_hand > current_level_bet:
+                    # El jugador aposto algo intermedio pero menos que este nivel
+                    partial = p.total_bet_in_hand - current_level_bet
+                    pot_amount += partial
+                    if p.is_active and not p.hand == []: # Raro caso si no hizo fold
+                        # Si no llego al nivel, tecnicamente no puede optar a este bote completo
+                        # PERO en poker side pots se definen por niveles de all-in.
+                        # Si alguien esta all-in por debajo de bet_level, NO entra en `eligible_players` de ESTE nivel superior.
+                        pass
+
+            # Regla de devolucion: Si solo 1 jugador contribuyo a este nivel (y nadie mas lo igualo ni parcialmente),
+            # se le devuelve ese dinero.
+            if contributing_players_count == 1 and eligible_players:
+                 # Encontrar al jugador y devolverle la pasta
+                 solo_player_name = eligible_players[0]
+                 for p in self.game.players:
+                     if p.name == solo_player_name:
+                         p.stack += pot_amount
+                 pass
+            elif pot_amount > 0:
+                # Si no hay jugadores elegibles (todos los contribuidores foldearon),
+                # el dinero es "Dead Money" y debe bajar al bote anterior (Main Pot) donde haya gente.
+                if not eligible_players:
+                    if self.game.side_pots:
+                        # Añadir al ultimo bote valido (el mas alto hasta ahora, o el main)
+                        # Nota: side_pots se llenan de menor apuesta a mayor. [-1] es el mas alto anterior.
+                        # Pero conceptualmente si todos foldearon lo alto, el dinero va al "Active Pot" mas alto.
+                        self.game.side_pots[-1].amount += pot_amount
+                    else:
+                        # Si es el primer nivel y nadie es elegible... (Raro, significaria 0 active players)
+                        # Crear side pot igual, distribute_pot fallara pero no hay a quien darselo.
+                        # O darselo al ultimo que foldeo? No, check_early_win deberia haber saltado.
+                        # Asumimos que hay un side_pot previo si hay jugadores All-in activos.
+                        self.game.side_pots.append(dm.SidePot(pot_amount, eligible_players))
+                else:
+                    self.game.side_pots.append(dm.SidePot(pot_amount, eligible_players))
+            
+            current_level_bet = bet_level
+
+    def distribute_pot(self):
+         self.resolve_side_pots()
+         
+         # Evaluar manos de todos los jugadores activos
+         for player in self.game.players:
+            if player.is_active:
+                player.evaluation = self.evaluator.evaluate_hand(player.hand, self.game.community_cards)
+
+         # Iterar sobre cada side pot y buscar ganador
+         for side_pot in self.game.side_pots:
+             if not side_pot.eligible_players:
+                 continue 
+             
+             candidates = [p for p in self.game.players if p.name in side_pot.eligible_players]
+             
+             if not candidates: continue
+
+             # Encontrar la mejor mano
+             best_eval = candidates[0].evaluation
+             winners = [candidates[0]]
+             
+             for p in candidates[1:]:
+                 # Asumiendo que evaluation implementa comparacion correcta. 
+                 # Si p > best: nuevo ganador unico.
+                 # Si p == best: split pot.
+                 # Necesitamos que HandEvaluator soporte igualdad correctamente.
+                 # Modificar poker_rules si es necesario o usar comparacion manual.
+                 if p.evaluation > best_eval:
+                     best_eval = p.evaluation
+                     winners = [p]
+                 elif not (best_eval > p.evaluation): # Si best no es mayor que p, y p no mayor que best -> EMPATE
+                      winners.append(p)
+             
+             share = side_pot.amount // len(winners)
+             remaining = side_pot.amount % len(winners)
+
+             for w in winners:
+                 w.stack += share
+                 self.game.winner_players.append(w.name)
+                 self.game.amount_won.append(share)
+             
+             # Dar remanente al primero (por posicion, inutisto pero estandar simple)
+             if remaining > 0:
+                 winners[0].stack += remaining
+                 
+         self.game.pot = 0
 
     def ciclo_juego(self):
         match self.game.round:
@@ -59,6 +226,10 @@ class Crupier:
                 new_high_raise, amount_raised = self.game.players[self.game.turn_to_act_index].action(
                     self.game.current_raise_to_match)
                 self.game.pot += amount_raised
+                self.game.players[self.game.turn_to_act_index].total_bet_in_hand += amount_raised # Track total
+                
+                if self.check_early_win(): return # Check if everyone else folded
+                
                 if new_high_raise != self.game.current_raise_to_match and not self.game.players[
                     self.game.turn_to_act_index].is_all_in:
                     self.game.current_raise_to_match = new_high_raise
@@ -91,6 +262,10 @@ class Crupier:
                 new_high_raise, amount_raised = self.game.players[self.game.turn_to_act_index].action(
                     self.game.current_raise_to_match)
                 self.game.pot += amount_raised
+                self.game.players[self.game.turn_to_act_index].total_bet_in_hand += amount_raised # Track total
+                
+                if self.check_early_win(): return
+
                 if new_high_raise != self.game.current_raise_to_match and not self.game.players[
                     self.game.turn_to_act_index].is_all_in:
                     self.game.current_raise_to_match = new_high_raise
@@ -122,6 +297,10 @@ class Crupier:
                 new_high_raise, amount_raised = self.game.players[self.game.turn_to_act_index].action(
                     self.game.current_raise_to_match)
                 self.game.pot += amount_raised
+                self.game.players[self.game.turn_to_act_index].total_bet_in_hand += amount_raised # Track total
+                
+                if self.check_early_win(): return
+
                 if new_high_raise != self.game.current_raise_to_match and not self.game.players[
                     self.game.turn_to_act_index].is_all_in:
                     self.game.current_raise_to_match = new_high_raise
@@ -153,6 +332,10 @@ class Crupier:
                 new_high_raise, amount_raised = self.game.players[self.game.turn_to_act_index].action(
                     self.game.current_raise_to_match)
                 self.game.pot += amount_raised
+                self.game.players[self.game.turn_to_act_index].total_bet_in_hand += amount_raised # Track total
+                
+                if self.check_early_win(): return
+
                 if new_high_raise != self.game.current_raise_to_match and not self.game.players[
                     self.game.turn_to_act_index].is_all_in:
                     self.game.current_raise_to_match = new_high_raise
@@ -176,37 +359,7 @@ class Crupier:
             case dm.Round.ShowHand:
                 # Evaluar manos (Se sigue usando dealed como flag para valorar si es el primer ciclo en esta ronda)
                 if self.dealed == False:
-                    for player in self.game.players:
-                        if player.is_active == True:
-                            player.evaluation = self.evaluator.evaluate_hand(player_hand=player.hand,
-                                                                             community_cards=self.game.community_cards)
-
-                    # Recompensar al ganador o ganadores si hay side pots (Condicionar a reinicio)
-                    while self.game.yet_to_evaluate() and self.game.pot > 0:
-                        # Comparar cartas
-                        best_index = None
-                        for index, player in enumerate(self.game.players):
-                            if player.is_active:
-                                best_index = index  # Tomar el primer judador activo
-                                break
-
-                        for i in range(best_index, len(self.game.players)):
-                            if self.game.players[i].is_active == True and i != best_index:
-                                if self.game.players[i].evaluation > self.game.players[best_index].evaluation:
-                                    best_index = i
-                        # Identificar si hay algun side_pot y su tamaño
-                        minimum_bet_player_index, minimum_bet = self.game.minimum_bet_player()
-
-                        side_pot = minimum_bet * self.game.number_of_active()
-                        # Añadir el dinero del sidepot al mejor jugador y eliminarlo del principal
-                        self.game.players[best_index].stack += side_pot
-                        self.game.pot -= side_pot
-                        # Guardar el jugador y cuanto ha ganado para su visualizacion
-                        self.game.winner_players.append(self.game.players[best_index].name)
-                        self.game.amount_won.append(side_pot)
-                        # Desactivar al jugador que lo creo
-                        self.game.players[minimum_bet_player_index].is_evaluated = True
-
+                    self.distribute_pot()
                     self.dealed = True
 
                 else:

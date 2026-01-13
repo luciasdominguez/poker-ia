@@ -5,15 +5,21 @@ import time
 
 game = dm.GameState([], 50)
 
-#player1 = dm.AIPlayer("1", 1000,game)
-#player2 = dm.AIPlayer("2", 1000,game)
-player3 = dm.HumanPlayer("3", 1000)
+# Configurar Dificultad
+print("=== POKER IA ===")
+print("Selecciona Dificultad de la IA:")
+print("1. Fácil (Modo Fish) - Pasivo y Relajado")
+print("2. Difícil (Modo Shark) - Agresivo y Calculador")
+choice = input("Elige (1/2): ")
+difficulty = 'easy' if choice == '1' else 'hard'
 
-player1 = dm.HumanPlayer("1", 1000)
-player2 = dm.HumanPlayer("22", 1000)
+# Crear Jugadores
+# Un humano y dos bots
+player1 = dm.HumanPlayer("Hero", 1000)
+player2 = dm.AIPlayer("Bot_1", 1000, game, difficulty)
+player3 = dm.AIPlayer("Bot_2", 1000, game, difficulty)
 
-
-game = dm.GameState([player1, player2, player3],50)
+game = dm.GameState([player1, player2, player3], 50)
 
 logic = Crupier(game)
 interface = Table(game)

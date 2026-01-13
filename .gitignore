@@ -12,3 +12,6 @@ __pycache__/
 # Archivos de OS
 .DS_Store
 Thumbs.db
+
+# Ignored folders
+pokeria/
