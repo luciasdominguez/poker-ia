@@ -180,11 +180,16 @@ class HumanPlayer(Player):
                 return current_raise_to_match, 0
 
             elif opcion == 4:  # All-in
-                amount_to_pay = self.stack
+                raise_amount =self.stack-needed_to_call
+                total_new_bet = current_raise_to_match + raise_amount
+                amount_to_pay = total_new_bet - self.current_bet
+
+                if amount_to_pay >= self.stack:  # Si no le alcanza, es un All-in
+                    amount_to_pay = self.stack
+                    self.is_all_in = True
+
                 self.current_bet += amount_to_pay
-                self.is_all_in = True
-                if self.current_bet > current_raise_to_match:
-                    current_raise_to_match = self.current_bet
+                current_raise_to_match = self.current_bet
 
         self.stack -= amount_to_pay
         self.has_called = True
