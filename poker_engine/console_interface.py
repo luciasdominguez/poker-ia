@@ -30,24 +30,7 @@ class Table:
                 print(" ========================")
                 print(f" Fichas: {self.game.players[self.game.turn_to_act_index].stack}")
                 print(f" Apuesta: {self.game.players[self.game.turn_to_act_index].current_bet}")
-                to_call = self.game.current_raise_to_match - actual_player.current_bet
-                if isinstance(actual_player, dm.HumanPlayer):
-                    print(f" Cartas: {actual_player.hand}")
-                    print(" ========================")
-                    if to_call > 0:
-                        print(f" -> Tienes que pagar: {to_call}")
-                    else:
-                        print(" -> Puedes pasar")
-
-                    print(" ========================")
-                    # Acciones a realizar
-                    print(f" ===== Acciones Posibles ===== ")
-                    print(" ========================")
-                    print("1- Igualar/Pasar")
-                    print("2 - Subir")
-                    print("3 - Retirarse")
-                    print("4 - All in")
-                    print(" ========================")
+               
             case dm.Round.Flop:
                 self.limpiar_consola()
                 actual_player = self.game.players[self.game.turn_to_act_index]
@@ -69,20 +52,7 @@ class Table:
                 if isinstance(actual_player, dm.HumanPlayer):
                     print(f" Cartas: {actual_player.hand}")
                     print(" ========================")
-                    to_call = self.game.current_raise_to_match - actual_player.current_bet
-
-                    if to_call > 0:
-                        print(f" -> Tienes que pagar: {to_call}")
-                    else:
-                        print(" -> Puedes pasar")
-                    # Acciones a realizar
-                    print(f" ===== Acciones Posibles ===== ")
-                    print(" ========================")
-                    print("1- Igualar/Pasar")
-                    print("2 - Subir")
-                    print("3 - Retirarse")
-                    print("4 - All in")
-                    print(" ========================")
+                  
 
             case dm.Round.Turn:
                 self.limpiar_consola()
@@ -103,20 +73,7 @@ class Table:
                 if isinstance(actual_player, dm.HumanPlayer):
                     print(f" Cartas: {actual_player.hand}")
                     print(" ========================")
-                    to_call = self.game.current_raise_to_match - actual_player.current_bet
-
-                    if to_call > 0:
-                        print(f" -> Tienes que pagar: {to_call}")
-                    else:
-                        print(" -> Puedes pasar")
-                    # Acciones a realizar
-                    print(f" ===== Acciones Posibles ===== ")
-                    print(" ========================")
-                    print("1- Igualar/Pasar")
-                    print("2 - Subir")
-                    print("3 - Retirarse")
-                    print("4 - All in")
-                    print(" ========================")
+                   
 
             case dm.Round.River:
                 actual_player = self.game.players[self.game.turn_to_act_index]
@@ -135,20 +92,7 @@ class Table:
                 if isinstance(actual_player, dm.HumanPlayer):
                     print(f" Cartas: {actual_player.hand}")
                     print(" ========================")
-                    to_call = self.game.current_raise_to_match - actual_player.current_bet
-
-                    if to_call > 0:
-                        print(f" -> Tienes que pagar: {to_call}")
-                    else:
-                        print(" -> Puedes pasar")
-                    # Acciones a realizar
-                    print(f" ===== Acciones Posibles ===== ")
-                    print(" ========================")
-                    print("1- Igualar/Pasar")
-                    print("2 - Subir")
-                    print("3 - Retirarse")
-                    print("4 - All in")
-                    print(" ========================")
+                   
 
             case dm.Round.ShowHand:
                 self.limpiar_consola()
