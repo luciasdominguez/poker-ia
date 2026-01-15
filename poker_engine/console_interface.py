@@ -30,7 +30,7 @@ class Table:
                 print(" ========================")
                 print(f" Fichas: {self.game.players[self.game.turn_to_act_index].stack}")
                 print(f" Apuesta: {self.game.players[self.game.turn_to_act_index].current_bet}")
-                 actual_player = self.game.players[self.game.turn_to_act_index]
+                actual_player = self.game.players[self.game.turn_to_act_index]
 
                 if isinstance(actual_player, dm.HumanPlayer):
                     print(f" Cartas: {actual_player.hand}")
@@ -126,4 +126,15 @@ class Table:
                 print(f" ===== Acciones Posibles ===== ")
                 print(" ========================")
                 print("1- Nueva Mano")
+                print(" ========================")
+
+            case dm.Round.EndGame:
+                self.limpiar_consola()
+                # Caracteristicas globales de la partida:
+                print(" ===== Todos los demas jugadores se retiraron ===== ")
+
+                # Mostrar ganadores y cantidad:
+                print(" ========================")
+                print(f"Ganador: {self.game.winner_players}")
+                print(f"Obtuvo todos los botes en juego")
                 print(" ========================")

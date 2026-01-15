@@ -298,14 +298,27 @@ class Crupier:
                 round_complete = False
                 
                 if self.all_has_called():
+                    i = 0
+                    if not self.game.players[next_turn_index].is_active:
+                        while not self.game.players[next_turn_index+i].is_active:
+
+                            if self.game.round == dm.Round.PreFlop and self.game.turn_to_act_index == self.game.last_raiser:
+                                round_complete = True
+                            elif (next_turn_index+i) == self.game.last_raiser:
+                                round_complete = True
+                            i = (i+1) % len(self.game.players)
+
                     if self.game.round == dm.Round.PreFlop and self.game.turn_to_act_index == self.game.last_raiser:
-                        round_complete = True
-                    elif next_turn_index == self.game.last_raiser:
-                        round_complete = True
+                            round_complete = True
+                    elif (next_turn_index+i) == self.game.last_raiser:
+                            round_complete = True
 
                 if round_complete:
                     self.game.turn_to_act_index = self.game.small_blind_indx
                     self.game.last_raiser = self.game.small_blind_indx
+                    while not self.game.players[self.game.turn_to_act_index].is_active:
+                        self.game.turn_to_act_index = (self.game.turn_to_act_index + 1) % len(self.game.players)
+                        self.game.last_raiser = self.game.turn_to_act_index
                     self.dealed = False
                     self.game.raises_this_round = 0
                     self.game.round = dm.Round.Flop
@@ -347,14 +360,27 @@ class Crupier:
                 
                 # Check PostFlop / PreFlop unified logic (Although this block is Flop, sticking to unified safe logic)
                 if self.all_has_called():
-                    if self.game.round == dm.Round.PreFlop and self.game.turn_to_act_index == self.game.last_raiser:
-                        round_complete = True
-                    elif next_turn_index == self.game.last_raiser:
-                        round_complete = True
+                    i = 0
+                    if not self.game.players[next_turn_index].is_active:
+                        while not self.game.players[next_turn_index+i].is_active:
 
+                            if self.game.round == dm.Round.PreFlop and self.game.turn_to_act_index == self.game.last_raiser:
+                                round_complete = True
+                            elif (next_turn_index+i) == self.game.last_raiser:
+                                round_complete = True
+                            i = (i+1) % len(self.game.players)
+
+                    if self.game.round == dm.Round.PreFlop and self.game.turn_to_act_index == self.game.last_raiser:
+                            round_complete = True
+                    elif (next_turn_index+i) == self.game.last_raiser:
+                                round_complete = True
+            
                 if round_complete:
                     self.game.turn_to_act_index = self.game.small_blind_indx
                     self.game.last_raiser = self.game.small_blind_indx
+                    while not self.game.players[self.game.turn_to_act_index].is_active:
+                        self.game.turn_to_act_index = (self.game.turn_to_act_index + 1) % len(self.game.players)
+                        self.game.last_raiser = self.game.turn_to_act_index
                     self.dealed = False
                     self.game.raises_this_round = 0
                     self.game.round = dm.Round.Turn
@@ -394,14 +420,27 @@ class Crupier:
                 round_complete = False
                 
                 if self.all_has_called():
+                    i = 0
+                    if not self.game.players[next_turn_index].is_active:                        
+                        while not self.game.players[next_turn_index+i].is_active:
+
+                            if self.game.round == dm.Round.PreFlop and self.game.turn_to_act_index == self.game.last_raiser:
+                                round_complete = True
+                            elif (next_turn_index+i) == self.game.last_raiser:
+                                round_complete = True
+                            i = (i+1) % len(self.game.players)
+
                     if self.game.round == dm.Round.PreFlop and self.game.turn_to_act_index == self.game.last_raiser:
-                        round_complete = True
-                    elif next_turn_index == self.game.last_raiser:
-                        round_complete = True
+                            round_complete = True
+                    elif (next_turn_index+i) == self.game.last_raiser:
+                            round_complete = True
 
                 if round_complete:
                     self.game.turn_to_act_index = self.game.small_blind_indx
                     self.game.last_raiser = self.game.small_blind_indx
+                    while not self.game.players[self.game.turn_to_act_index].is_active:
+                        self.game.turn_to_act_index = (self.game.turn_to_act_index + 1) % len(self.game.players)
+                        self.game.last_raiser = self.game.turn_to_act_index
                     self.dealed = False
                     self.game.raises_this_round = 0
                     self.game.round = dm.Round.River
@@ -441,14 +480,28 @@ class Crupier:
                 round_complete = False
                 
                 if self.all_has_called():
+                    i = 0
+                    if not self.game.players[next_turn_index].is_active:                      
+                        while not self.game.players[next_turn_index+i].is_active:
+
+                            if self.game.round == dm.Round.PreFlop and self.game.turn_to_act_index == self.game.last_raiser:
+                                round_complete = True
+                            elif (next_turn_index+i) == self.game.last_raiser:
+                                round_complete = True
+                                
+                            i = (i+1) % len(self.game.players)
+
                     if self.game.round == dm.Round.PreFlop and self.game.turn_to_act_index == self.game.last_raiser:
-                        round_complete = True
-                    elif next_turn_index == self.game.last_raiser:
-                        round_complete = True
+                            round_complete = True
+                    elif (next_turn_index+i) == self.game.last_raiser:
+                            round_complete = True
 
                 if round_complete:
                     self.game.turn_to_act_index = self.game.small_blind_indx
                     self.game.last_raiser = self.game.small_blind_indx
+                    while not self.game.players[self.game.turn_to_act_index].is_active:
+                        self.game.turn_to_act_index = (self.game.turn_to_act_index + 1) % len(self.game.players)
+                        self.game.last_raiser = self.game.turn_to_act_index
                     self.dealed = False
                     self.game.raises_this_round = 0
                     self.game.round = dm.Round.ShowHand
@@ -478,3 +531,10 @@ class Crupier:
                     self.dealed = False
                     self.game.reset_for_new_hand()
                     self.game.round = dm.Round.PreFlop
+
+            case dm.Round.EndGame:
+                input("====== Presiona Enter para continuar... ======")
+
+                self.dealed = False
+                self.game.reset_for_new_hand()
+                self.game.round = dm.Round.PreFlop

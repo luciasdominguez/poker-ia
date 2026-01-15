@@ -73,6 +73,7 @@ class Player:
         self.current_bet = 0
         self.total_bet_in_hand = 0
         self.evaluation = None
+        self.is_all_in = False
         if self.stack > 0:
             self.is_active = True
         else:
