@@ -127,25 +127,51 @@ class AIPlayer(Player):
         if fuzzy_action == 3:  # Fold
             self.is_active = False
             self.has_called = True
+            print(f"> {self.name} se retira (Fold).")
             return current_raise_to_match, 0
+
+        # CAP DE SUBIDAS: Si ya hubo 4 o más subidas en esta ronda, forzamos Call
+        if fuzzy_action == 2:  # Raise
+             if self.game.raises_this_round >= 4:
+                 fuzzy_action = 1 # Force Call
 
         if fuzzy_action == 2:  # Raise
             extra_raise = int(self.stack * bet_multiplier)
             new_total = current_raise_to_match + extra_raise
+            
+            # Ajuste minimo de subida (minraise)
+            min_raise = self.game.bigBlind 
+            if extra_raise < min_raise and (self.stack > current_raise_to_match - self.current_bet + min_raise):
+                 extra_raise = min_raise
+                 new_total = current_raise_to_match + extra_raise
+            
         else:  # Call / Pass
             new_total = current_raise_to_match
 
         actual_pay = new_total - self.current_bet
 
         # Validación de fondos
+        option_str = "paga"
+        if fuzzy_action == 2: option_str = "sube"
+        
         if actual_pay >= self.stack:
             actual_pay = self.stack
             new_total = self.current_bet + self.stack
             self.is_all_in = True
+            option_str = "va All-in"
 
         self.stack -= actual_pay  # RESTA real del stack
         self.current_bet = new_total
         self.has_called = True
+        
+        if fuzzy_action == 2 and not self.is_all_in:
+             print(f"> {self.name} sube a {new_total} (Apostó {actual_pay}).")
+        elif self.is_all_in:
+             print(f"> {self.name} {option_str} por {actual_pay}!")
+        elif actual_pay > 0:
+             print(f"> {self.name} paga {actual_pay}.")
+        else:
+             print(f"> {self.name} pasa (Check).")
 
         return new_total, actual_pay
 
@@ -157,7 +183,10 @@ class HumanPlayer(Player):
         if not self.is_all_in:
             # Mostramos al usuario cuánto debe poner para igualar
             needed_to_call = current_raise_to_match - self.current_bet
-            print(f"Para igualar: {needed_to_call}")
+            if needed_to_call > 0:
+                print(f"Para igualar: {needed_to_call}")
+            else:
+                print("Puedes pasar (coste 0).")
 
             opcion = int(input("1-Igualar/Pasar, 2-Subir, 3-Retirarse, 4-All-in: "))
 
@@ -228,6 +257,7 @@ class GameState:
         self.small_blind_indx = 0  # Jugador que da la ciega pequeña de la mano (se le considera que empieza jugando aunque sea accion forzada)
         self.current_raise_to_match = 0  # Nivel de la apuesta a igualar
         self.last_raiser = 0  # Ultimo jugador en subir la apuesta
+        self.raises_this_round = 0 # Contador de subidas en la ronda actual
         self.round = Round.PreFlop
 
         # Definir las ciegas minimas como parte de la partida permitira subirlas entre manos

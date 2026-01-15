@@ -68,20 +68,22 @@ class Crupier:
         sb_player = self.game.players[self.game.turn_to_act_index]
         bb_player = self.game.players[((self.game.turn_to_act_index + 1) % len(self.game.players))]
         
-        sb_player.current_bet = self.game.smallBlind
-        sb_player.total_bet_in_hand += self.game.smallBlind # Track total
+        sb_amount = min(self.game.smallBlind, sb_player.stack)
+        sb_player.current_bet = sb_amount
+        sb_player.total_bet_in_hand += sb_amount # Track total
+        sb_player.stack -= sb_amount
+        if sb_player.stack == 0: sb_player.is_all_in = True
         
-        bb_player.current_bet = self.game.bigBlind
-        bb_player.total_bet_in_hand += self.game.bigBlind # Track total
-        
-        # Retirar el dinero de los jugadores
-        sb_player.stack -= self.game.smallBlind
-        bb_player.stack -= self.game.bigBlind
+        bb_amount = min(self.game.bigBlind, bb_player.stack)
+        bb_player.current_bet = bb_amount
+        bb_player.total_bet_in_hand += bb_amount # Track total
+        bb_player.stack -= bb_amount
+        if bb_player.stack == 0: bb_player.is_all_in = True
         
         # Incluir la apuesta en el bote
         self.game.current_raise_to_match = self.game.bigBlind
         
-        self.game.pot = self.game.smallBlind + self.game.bigBlind
+        self.game.pot = sb_amount + bb_amount
         # Darle el turno al primer jugador (despues de las ciegas)
         self.game.last_raiser = ((self.game.turn_to_act_index + 1) % len(self.game.players))
         self.game.turn_to_act_index = (self.game.turn_to_act_index + 2) % len(self.game.players)
@@ -154,16 +156,12 @@ class Crupier:
                         # Pero conceptualmente si todos foldearon lo alto, el dinero va al "Active Pot" mas alto.
                         self.game.side_pots[-1].amount += pot_amount
                     else:
-                        # Si es el primer nivel y nadie es elegible... (Raro, significaria 0 active players)
-                        # Crear side pot igual, distribute_pot fallara pero no hay a quien darselo.
-                        # O darselo al ultimo que foldeo? No, check_early_win deberia haber saltado.
-                        # Asumimos que hay un side_pot previo si hay jugadores All-in activos.
-                        self.game.side_pots.append(dm.SidePot(pot_amount, eligible_players))
+                        # Si es el primer nivel y nadie de los que puso dinero esta activo (todos foldearon)
+                        # El dinero se lo llevan los supervivientes (los que sigan activos aunque hayan puesto menos o nada - blinds/allin 0)
+                        survivors = [p.name for p in self.game.players if p.is_active]
+                        self.game.side_pots.append(dm.SidePot(pot_amount, survivors))
                 else:
-                    # Si es el primer nivel y nadie de los que puso dinero esta activo (todos foldearon)
-                    # El dinero se lo llevan los supervivientes (los que sigan activos aunque hayan puesto menos o nada - blinds/allin 0)
-                    survivors = [p.name for p in self.game.players if p.is_active]
-                    self.game.side_pots.append(dm.SidePot(pot_amount, survivors))
+                    self.game.side_pots.append(dm.SidePot(pot_amount, eligible_players))
             
             current_level_bet = bet_level
 
@@ -213,8 +211,58 @@ class Crupier:
                  winners[0].stack += remaining
                  
          self.game.pot = 0
+    
+    def fast_forward_check(self):
+        # Check if we should skip asking for actions (Everyone All-In or only 1 active player with chips)
+        active_with_chips = 0
+        active_players = 0
+        
+        for p in self.game.players:
+            if p.is_active:
+                active_players += 1
+                if not p.is_all_in and p.stack > 0:
+                    active_with_chips += 1
+        
+        # If active_with_chips < 2, then nobody can raise against anyone else.
+        if active_with_chips < 2:
+            return True
+        return False
+        
+    def advance_cleanup(self):
+         self.game.turn_to_act_index = self.game.small_blind_indx
+         self.game.last_raiser = self.game.small_blind_indx
+         self.dealed = False
+         self.game.raises_this_round = 0 # Reset raise counter
+         
+         for player in self.game.players:
+              player.change_round()
 
     def ciclo_juego(self):
+        # FAST FORWARD CHECK
+        if self.game.round != dm.Round.ShowHand and self.game.round != dm.Round.EndGame:
+              if self.fast_forward_check() and self.all_has_called():
+                  # Avanzar estado
+                  if self.game.round == dm.Round.PreFlop: 
+                       self.game.round = dm.Round.Flop
+                       self.advance_cleanup()
+                       print(">>> All-In / No more bets possible. Advancing to FLOP...")
+                       return
+                  elif self.game.round == dm.Round.Flop:
+                       self.game.round = dm.Round.Turn
+                       self.advance_cleanup()
+                       print(">>> Advancing to TURN...")
+                       return
+                  elif self.game.round == dm.Round.Turn:
+                       self.game.round = dm.Round.River
+                       self.advance_cleanup()
+                       print(">>> Advancing to RIVER...")
+                       return
+                  elif self.game.round == dm.Round.River:
+                       self.game.round = dm.Round.ShowHand
+                       self.advance_cleanup()
+                       print(">>> Advancing to SHOWDOWN...")
+                       return
+
         match self.game.round:
             case dm.Round.PreFlop:
                 if self.dealed == False:
@@ -235,6 +283,8 @@ class Crupier:
                 
                 if new_high_raise != self.game.current_raise_to_match:
                     self.game.current_raise_to_match = new_high_raise
+                    self.game.turn_to_act_index = self.game.turn_to_act_index
+                    self.game.raises_this_round += 1
                     self.game.last_raiser = self.game.turn_to_act_index
                     # Si hubo subida, invalidar has_called para el resto para obligarles a actuar
                     for p in self.game.players:
@@ -257,6 +307,7 @@ class Crupier:
                     self.game.turn_to_act_index = self.game.small_blind_indx
                     self.game.last_raiser = self.game.small_blind_indx
                     self.dealed = False
+                    self.game.raises_this_round = 0
                     self.game.round = dm.Round.Flop
                     self.dealed = False
                     for player in self.game.players:
@@ -284,6 +335,8 @@ class Crupier:
 
                 if new_high_raise != self.game.current_raise_to_match:
                     self.game.current_raise_to_match = new_high_raise
+                    self.game.turn_to_act_index = self.game.turn_to_act_index
+                    self.game.raises_this_round += 1
                     self.game.last_raiser = self.game.turn_to_act_index
                     for p in self.game.players:
                         if p != self.game.players[self.game.turn_to_act_index]:
@@ -303,6 +356,7 @@ class Crupier:
                     self.game.turn_to_act_index = self.game.small_blind_indx
                     self.game.last_raiser = self.game.small_blind_indx
                     self.dealed = False
+                    self.game.raises_this_round = 0
                     self.game.round = dm.Round.Turn
                     self.dealed = False
                     for player in self.game.players:
@@ -329,6 +383,8 @@ class Crupier:
 
                 if new_high_raise != self.game.current_raise_to_match:
                     self.game.current_raise_to_match = new_high_raise
+                    self.game.turn_to_act_index = self.game.turn_to_act_index
+                    self.game.raises_this_round += 1
                     self.game.last_raiser = self.game.turn_to_act_index
                     for p in self.game.players:
                         if p != self.game.players[self.game.turn_to_act_index]:
@@ -347,6 +403,7 @@ class Crupier:
                     self.game.turn_to_act_index = self.game.small_blind_indx
                     self.game.last_raiser = self.game.small_blind_indx
                     self.dealed = False
+                    self.game.raises_this_round = 0
                     self.game.round = dm.Round.River
                     self.dealed = False
                     for player in self.game.players:
@@ -373,6 +430,8 @@ class Crupier:
 
                 if new_high_raise != self.game.current_raise_to_match:
                     self.game.current_raise_to_match = new_high_raise
+                    self.game.turn_to_act_index = self.game.turn_to_act_index
+                    self.game.raises_this_round += 1
                     self.game.last_raiser = self.game.turn_to_act_index
                     for p in self.game.players:
                         if p != self.game.players[self.game.turn_to_act_index]:
@@ -391,6 +450,7 @@ class Crupier:
                     self.game.turn_to_act_index = self.game.small_blind_indx
                     self.game.last_raiser = self.game.small_blind_indx
                     self.dealed = False
+                    self.game.raises_this_round = 0
                     self.game.round = dm.Round.ShowHand
                     self.dealed = False
                     for player in self.game.players:
