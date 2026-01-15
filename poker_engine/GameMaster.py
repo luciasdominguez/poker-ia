@@ -160,7 +160,10 @@ class Crupier:
                         # Asumimos que hay un side_pot previo si hay jugadores All-in activos.
                         self.game.side_pots.append(dm.SidePot(pot_amount, eligible_players))
                 else:
-                    self.game.side_pots.append(dm.SidePot(pot_amount, eligible_players))
+                    # Si es el primer nivel y nadie de los que puso dinero esta activo (todos foldearon)
+                    # El dinero se lo llevan los supervivientes (los que sigan activos aunque hayan puesto menos o nada - blinds/allin 0)
+                    survivors = [p.name for p in self.game.players if p.is_active]
+                    self.game.side_pots.append(dm.SidePot(pot_amount, survivors))
             
             current_level_bet = bet_level
 
@@ -230,13 +233,27 @@ class Crupier:
                 
                 if self.check_early_win(): return # Check if everyone else folded
                 
-                if new_high_raise != self.game.current_raise_to_match and not self.game.players[
-                    self.game.turn_to_act_index].is_all_in:
+                if new_high_raise != self.game.current_raise_to_match:
                     self.game.current_raise_to_match = new_high_raise
                     self.game.last_raiser = self.game.turn_to_act_index
+                    # Si hubo subida, invalidar has_called para el resto para obligarles a actuar
+                    for p in self.game.players:
+                        if p != self.game.players[self.game.turn_to_act_index]:
+                            p.has_called = False
 
-                # Cambiar de ronda si corresponde, en caso contrario, cambiar jugador
-                if self.all_has_called() and (self.game.turn_to_act_index == self.game.last_raiser):
+                # Cambiar de ronda si corresponde
+                # PreFlop: Termina cuando el turno vuelve al last_raiser y este ya ha actuado (BB Option)
+                # PostFlop: Termina cuando el next_turn es el last_raiser
+                next_turn_index = (self.game.turn_to_act_index + 1) % len(self.game.players)
+                round_complete = False
+                
+                if self.all_has_called():
+                    if self.game.round == dm.Round.PreFlop and self.game.turn_to_act_index == self.game.last_raiser:
+                        round_complete = True
+                    elif next_turn_index == self.game.last_raiser:
+                        round_complete = True
+
+                if round_complete:
                     self.game.turn_to_act_index = self.game.small_blind_indx
                     self.game.last_raiser = self.game.small_blind_indx
                     self.dealed = False
@@ -245,8 +262,7 @@ class Crupier:
                     for player in self.game.players:
                         player.change_round()
                 else:
-                    self.game.turn_to_act_index = (self.game.turn_to_act_index + 1) % len(
-                        self.game.players)  # Cambiar de jugador
+                    self.game.turn_to_act_index = next_turn_index  # Cambiar de jugador
                     while not self.game.players[self.game.turn_to_act_index].is_active:
                         self.game.turn_to_act_index = (self.game.turn_to_act_index + 1) % len(self.game.players)
 
@@ -266,13 +282,24 @@ class Crupier:
                 
                 if self.check_early_win(): return
 
-                if new_high_raise != self.game.current_raise_to_match and not self.game.players[
-                    self.game.turn_to_act_index].is_all_in:
+                if new_high_raise != self.game.current_raise_to_match:
                     self.game.current_raise_to_match = new_high_raise
                     self.game.last_raiser = self.game.turn_to_act_index
+                    for p in self.game.players:
+                        if p != self.game.players[self.game.turn_to_act_index]:
+                            p.has_called = False
 
-                # Cambiar de ronda si corresponde, en caso contrario, cambiar jugador
-                if self.all_has_called() and (self.game.turn_to_act_index == self.game.last_raiser):
+                next_turn_index = (self.game.turn_to_act_index + 1) % len(self.game.players)
+                round_complete = False
+                
+                # Check PostFlop / PreFlop unified logic (Although this block is Flop, sticking to unified safe logic)
+                if self.all_has_called():
+                    if self.game.round == dm.Round.PreFlop and self.game.turn_to_act_index == self.game.last_raiser:
+                        round_complete = True
+                    elif next_turn_index == self.game.last_raiser:
+                        round_complete = True
+
+                if round_complete:
                     self.game.turn_to_act_index = self.game.small_blind_indx
                     self.game.last_raiser = self.game.small_blind_indx
                     self.dealed = False
@@ -281,8 +308,7 @@ class Crupier:
                     for player in self.game.players:
                         player.change_round()
                 else:
-                    self.game.turn_to_act_index = (self.game.turn_to_act_index + 1) % len(
-                        self.game.players)  # Cambiar de jugador
+                    self.game.turn_to_act_index = next_turn_index
                     while not self.game.players[self.game.turn_to_act_index].is_active:
                         self.game.turn_to_act_index = (self.game.turn_to_act_index + 1) % len(self.game.players)
 
@@ -301,13 +327,23 @@ class Crupier:
                 
                 if self.check_early_win(): return
 
-                if new_high_raise != self.game.current_raise_to_match and not self.game.players[
-                    self.game.turn_to_act_index].is_all_in:
+                if new_high_raise != self.game.current_raise_to_match:
                     self.game.current_raise_to_match = new_high_raise
                     self.game.last_raiser = self.game.turn_to_act_index
+                    for p in self.game.players:
+                        if p != self.game.players[self.game.turn_to_act_index]:
+                            p.has_called = False
 
-                # Cambiar de ronda si corresponde, en caso contrario, cambiar jugador
-                if self.all_has_called() and (self.game.turn_to_act_index == self.game.last_raiser):
+                next_turn_index = (self.game.turn_to_act_index + 1) % len(self.game.players)
+                round_complete = False
+                
+                if self.all_has_called():
+                    if self.game.round == dm.Round.PreFlop and self.game.turn_to_act_index == self.game.last_raiser:
+                        round_complete = True
+                    elif next_turn_index == self.game.last_raiser:
+                        round_complete = True
+
+                if round_complete:
                     self.game.turn_to_act_index = self.game.small_blind_indx
                     self.game.last_raiser = self.game.small_blind_indx
                     self.dealed = False
@@ -316,8 +352,7 @@ class Crupier:
                     for player in self.game.players:
                         player.change_round()
                 else:
-                    self.game.turn_to_act_index = (self.game.turn_to_act_index + 1) % len(
-                        self.game.players)  # Cambiar de jugador
+                    self.game.turn_to_act_index = next_turn_index
                     while not self.game.players[self.game.turn_to_act_index].is_active:
                         self.game.turn_to_act_index = (self.game.turn_to_act_index + 1) % len(self.game.players)
 
@@ -336,13 +371,23 @@ class Crupier:
                 
                 if self.check_early_win(): return
 
-                if new_high_raise != self.game.current_raise_to_match and not self.game.players[
-                    self.game.turn_to_act_index].is_all_in:
+                if new_high_raise != self.game.current_raise_to_match:
                     self.game.current_raise_to_match = new_high_raise
                     self.game.last_raiser = self.game.turn_to_act_index
+                    for p in self.game.players:
+                        if p != self.game.players[self.game.turn_to_act_index]:
+                            p.has_called = False
 
-                # Cambiar de ronda si corresponde, en caso contrario, cambiar jugador
-                if self.all_has_called() and (self.game.turn_to_act_index == self.game.last_raiser):
+                next_turn_index = (self.game.turn_to_act_index + 1) % len(self.game.players)
+                round_complete = False
+                
+                if self.all_has_called():
+                    if self.game.round == dm.Round.PreFlop and self.game.turn_to_act_index == self.game.last_raiser:
+                        round_complete = True
+                    elif next_turn_index == self.game.last_raiser:
+                        round_complete = True
+
+                if round_complete:
                     self.game.turn_to_act_index = self.game.small_blind_indx
                     self.game.last_raiser = self.game.small_blind_indx
                     self.dealed = False
@@ -351,8 +396,7 @@ class Crupier:
                     for player in self.game.players:
                         player.change_round()
                 else:
-                    self.game.turn_to_act_index = (self.game.turn_to_act_index + 1) % len(
-                        self.game.players)  # Cambiar de jugador
+                    self.game.turn_to_act_index = next_turn_index
                     while not self.game.players[self.game.turn_to_act_index].is_active:
                         self.game.turn_to_act_index = (self.game.turn_to_act_index + 1) % len(self.game.players)
 
