@@ -82,12 +82,12 @@ def get_fuzzy_decision(win_prob, pot_odds, rel_stack, difficulty='hard'):
         score = simulation.output['decision']
         res_bet = float(simulation.output['aggressiveness'])
         
-        if score < 3.0: res_action = 3 # Fold
-        elif score < 6.5: res_action = 1 # Call
-        elif score < 8.0: res_action = 2 # Raise
+        if score < 7.0: res_action = 3 # Fold
+        elif score < 8: res_action = 1 # Call
+        elif score < 9: res_action = 2 # Raise
         else:
             res_action = 2
-            if score >= 8.0: res_bet = 1.0 # Force max bet -> All-in effect
+            if score >= 8.0: res_bet = 1.0
         
         return res_action, res_bet
         
