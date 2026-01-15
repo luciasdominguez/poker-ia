@@ -30,6 +30,11 @@ class Table:
                 print(" ========================")
                 print(f" Fichas: {self.game.players[self.game.turn_to_act_index].stack}")
                 print(f" Apuesta: {self.game.players[self.game.turn_to_act_index].current_bet}")
+                 actual_player = self.game.players[self.game.turn_to_act_index]
+
+                if isinstance(actual_player, dm.HumanPlayer):
+                    print(f" Cartas: {actual_player.hand}")
+                    print(" ========================")
                
             case dm.Round.Flop:
                 self.limpiar_consola()
