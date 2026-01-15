@@ -236,6 +236,8 @@ class Crupier:
          
          for player in self.game.players:
               player.change_round()
+          
+         self.game.min_raise = self.game.bigBlind # Reset min raise for new round
 
     def ciclo_juego(self):
         # FAST FORWARD CHECK
@@ -334,6 +336,11 @@ class Crupier:
                 if self.check_early_win(): return
 
                 if new_high_raise != self.game.current_raise_to_match:
+                    # Update Min Raise
+                    raise_amt = new_high_raise - self.game.current_raise_to_match
+                    if raise_amt >= self.game.min_raise:
+                        self.game.min_raise = raise_amt
+
                     self.game.current_raise_to_match = new_high_raise
                     self.game.turn_to_act_index = self.game.turn_to_act_index
                     self.game.raises_this_round += 1
@@ -382,6 +389,11 @@ class Crupier:
                 if self.check_early_win(): return
 
                 if new_high_raise != self.game.current_raise_to_match:
+                    # Update Min Raise
+                    raise_amt = new_high_raise - self.game.current_raise_to_match
+                    if raise_amt >= self.game.min_raise:
+                        self.game.min_raise = raise_amt
+
                     self.game.current_raise_to_match = new_high_raise
                     self.game.turn_to_act_index = self.game.turn_to_act_index
                     self.game.raises_this_round += 1
@@ -429,6 +441,11 @@ class Crupier:
                 if self.check_early_win(): return
 
                 if new_high_raise != self.game.current_raise_to_match:
+                    # Update Min Raise
+                    raise_amt = new_high_raise - self.game.current_raise_to_match
+                    if raise_amt >= self.game.min_raise:
+                        self.game.min_raise = raise_amt
+
                     self.game.current_raise_to_match = new_high_raise
                     self.game.turn_to_act_index = self.game.turn_to_act_index
                     self.game.raises_this_round += 1

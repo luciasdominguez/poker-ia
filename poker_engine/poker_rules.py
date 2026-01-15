@@ -18,6 +18,9 @@ class HandRank(Enum):
     HIGH_CARD = 1  # Carta Alta
 
 
+from functools import total_ordering
+
+@total_ordering
 class HandEvaluation:
     """Almacena el rango de la mano y los 'kickers' (desempates) para comparación."""
 
@@ -26,12 +29,20 @@ class HandEvaluation:
         # Kickers: tupla de valores numéricos de las cartas, ordenados por importancia.
         self.kickers = kickers
 
+    def __eq__(self, other):
+        if not isinstance(other, HandEvaluation):
+            return NotImplemented
+        return self.rank == other.rank and self.kickers == other.kickers
+
     def __lt__(self, other):
         """Permite comparar dos evaluaciones de mano (para determinar el ganador)."""
+        if not isinstance(other, HandEvaluation):
+            return NotImplemented
         # 1. Compara el rango (el valor del Enum)
         if self.rank.value != other.rank.value:
             return self.rank.value < other.rank.value
         # 2. Si los rangos son iguales, compara los kickers
+        # Las tuplas se comparan elemento a elemento automágicamente en Python
         return self.kickers < other.kickers
 
     def __repr__(self):

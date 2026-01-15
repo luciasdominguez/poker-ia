@@ -196,14 +196,25 @@ class HumanPlayer(Player):
                 if self.stack <= amount_to_pay: self.is_all_in = True
 
             elif opcion == 2:  # Raise
+                min_r = self.game.bigBlind
+                print(f"Minima subida permitida: {min_r}")
                 raise_amount = int(input("¿Cuánto MÁS de la apuesta actual quieres subir?: "))
+                
+                # Validation loop
+                needed_to_call = current_raise_to_match - self.current_bet
+                max_raise = self.stack - needed_to_call
+                
+                while raise_amount < min_r and raise_amount < max_raise:
+                     print(f"La subida debe ser al menos {min_r} (o All-In).")
+                     raise_amount = int(input("¿Cuánto MÁS de la apuesta actual quieres subir?: "))
+
                 total_new_bet = current_raise_to_match + raise_amount
                 amount_to_pay = total_new_bet - self.current_bet
 
                 if amount_to_pay >= self.stack:  # Si no le alcanza, es un All-in
                     amount_to_pay = self.stack
                     self.is_all_in = True
-
+                
                 self.current_bet += amount_to_pay
                 current_raise_to_match = self.current_bet
 
